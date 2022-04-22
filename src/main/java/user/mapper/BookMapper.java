@@ -6,4 +6,5 @@ import user.pojo.Book;
 
 @Mapper
 public interface BookMapper extends tk.mybatis.mapper.common.Mapper<Book>{
+
 }
