@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      .grid {
+        margin: auto;
+        width: 800px;
+        text-align: center;
+      }
+      .grid table {
+        border-top: 1px solid #ced888;
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .grid th,
+      .grid td {
+        border: 1px dashed #ced888;
+        height: 40px;
+        line-height: 40px;
+        padding: 10px;
+      }
+      .grid th {
+        background-color: #ced888;
+      }
+      .grid .inputLine {
+        padding-top: 5px;
+        padding-bottom: 10px;
+        background-color: #ced888;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="grid">
+        <h2>图书管理</h2>
+        <div class="inputLine">
+          书名：<input type="text" name="" id="" v-model="bookInfo.name" />
+          <input
+            type="button"
+            value="提交"
+            @click="submit"
+            :disabled="isDisable"
+          />
+          搜索书名：
+          <input type="text" name="" id="" v-model="searchName" v-focus />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>书名</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in bookInfo" :key="item.id">
+              <td>{{item.id}}</td>
+              <td>{{item.name}}</td>
+              <td>{{item.data}}</td>
+              <td>
+                <a href="" @click.prevent="delBook(item.id)">删除</a>|<a
+                  href=""
+                  @click.prevent="toEditBook(index)"
+                  >修改</a
+                >
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+	<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+	<!-- 导入axios -->
+    <script>
+      Vue.directive("focus", {
+        inserted: function (el) {
+          el.focus();
+        },
+      });
+      Vue.filter("dateFormat", function (val, args = "") {
+        var dt = new Date(val);
+        var y = dt.getFullYear();
+        var m = (dt.getMonth() + 1).toString().padStart(2, "0");
+        var d = dt.getDate().toString().padStart(2, "0");
+        if (args === "yyyy-MM-dd") {
+          return `${y}-${m}-${d}`;
+        } else {
+          var h = dt.getHours().toString().padStart(2, "0");
+          var mm = dt.getMinutes().toString().padStart(2, "0");
+          var s = dt.getSeconds().toString().padStart(2, "0");
+          return `${y}-${m}-${d} ${h}:${mm}:${s}`;
+        }
+      });
+      var vm = new Vue({
+        created() {
+			this.getAllBooks()
+        },
+        el: "#app",
+        data: {
+          bookInfo: {
+            name: "",
+          },
+          searchName: "",
+          currentId: 0,
+          isDisable: true,
+          books: [],
+          modifyBookInfo:{
+            name: "",
+            id:""
+          },
+          bookDetail:{}
+
+        },
+        watch: {
+          "bookInfo.name": function (val) {
+            // 是否重名
+            this.isDisable = this.books.some((item) => item.name === val);
+          },
+        },
+        methods: {
+
+		async getAllBooks(){
+          axios.defaults.headers.post['Content-Type'] = 'application/json'
+          var a =  await axios.get("http://localhost/book/all/list")
+        this.bookInfo = a.data.data
+
+          this.books = a.data.data;
+		// console.log(this.bookInfo[0].name)
+         // console.log(a.data.data)
+
+        },
+          // 图书检索
+          searchBook(searchName) {
+            return this.books.filter(
+              (item) => item.name.indexOf(searchName) != -1
+            );
+          },
+          // 最大的ID
+          getId() {
+            var ids = this.books.map((item) => item.id);
+            return Math.max(...ids);
+          },
+          //添加图书
+          async addBook() {
+            if (this.bookInfo.name) {
+              //获取ID
+              var id = this.getId() + 1;
+              var book = {
+                id: id,
+                name: this.bookInfo.name,
+                cDate: new Date(),
+              };
+              this.books.push(book);
+
+              axios.defaults.headers.post['Content-Type'] = 'application/json'
+             await axios.get('http://localhost:80/book/add/'+book.name)
+                   .then(res=>{ console.log(res) })
+              this.getAllBooks()
+            }
+          },
+          // 编辑图书
+          async modifyBook() {
+             this.isDisable = true;
+             var id = this.currentId;
+            console.log(this.currentId+"  "+this.bookInfo.name)
+            this.delBook(this.currentId)
+            this.addBook(this.bookInfo.name)
+          },
+          toEditBook(index) {
+            console.log("toEditBook");
+            this.isDisable = true;
+            // console.log(this.books[index].name)
+            // console.log(this.books[index].id)
+            this.bookInfo.name = this.books[index].name
+            this.currentId = this.books[index].id
+            this.isDisable = false
+            // console.log(this.bookInfo.name)
+            // console.log( this.currentId )
+            // this.getAllBooks();
+          },
+          // 提交
+           submit() {
+            if (this.currentId === 0) {
+              //添加
+              this.addBook();
+
+            } else {
+              //编辑
+              this.modifyBook();
+              this.currentId = 0;
+            }
+            this.bookInfo.name = "";
+          },
+          // 删除
+         async delBook(id) {
+            this.books = this.books.filter((item) => item.id !== id);
+			// "http://localhost:80/books"
+			await  axios.get(`http://localhost:80/book/delete/`+id);
+			this.getAllBooks();
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
